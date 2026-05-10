@@ -1,62 +1,55 @@
-# Formations
+# formations
 
-An interactive generative art piece where each of 10 painters gets their own particle motion engine and procedural sound.
+ten painters. each one moves and sounds different.
 
-**[Live demo →](https://lauramionel.github.io/painters-formations/)**
+**[live →](https://lauramionel.github.io/painters-formations/)**
 
-## What it is
+---
 
-Ten painters, each with a hand-tuned bundle of:
+started after seeing [a patternseeing reel](https://www.instagram.com/reel/DXSa8wbiAZU/) — wanted something in the same spirit but online and that you could touch. then i started adding sound (one voice per painter), which took longer than the visuals tbh
 
-- **Color palette** drawn from their work
-- **Particle shape** (dot · streak · dash · glow · square · petal · triangle · smear · softbrush)
-- **Motion engine** (flowfield · multiswirl · dab · drip · mosaic · meander · bloom · grid · pulse)
-- **Procedural audio voice** in [Tone.js](https://tonejs.github.io/) with painter-specific scale, instrument, and ambient pulse
+each preset = palette + particle shape + motion engine + procedural tone.js voice. ten so far:
 
-| #  | Painter      | Motion                                | Sound                                 |
-|----|--------------|---------------------------------------|---------------------------------------|
-| 1  | Van Gogh     | multiple co-existing swirls           | C minor pentatonic pad                |
-| 2  | Monet        | soft impressionist brush dabs         | D pentatonic AM bells                 |
-| 3  | Mondrian     | grid-snap primary squares             | triangle-wave marimba pulses          |
-| 4  | Pollock      | ballistic drips, varied widths        | distorted membrane drum + FM horn     |
-| 5  | Klimt        | counter-rotating mosaic ellipses      | gold-bell ostinato in F major         |
-| 6  | Schiele      | meandering raw earthy lines           | sparse FM cello                       |
-| 7  | Matisse      | big slow flat color blobs             | warm AM sax pad                       |
-| 8  | Kandinsky    | many small lyrical orbits             | whole-tone FM chime arpeggio          |
-| 9  | Frida Kahlo  | spiraling vines blooming outward      | nylon guitar in A phrygian            |
-| 10 | Dalí         | melting downward gravity drips        | theremin with 1.8s portamento         |
+1. **van gogh** — multiple swirl centers, dash strokes, c minor pentatonic pad
+2. **monet** — soft brush dabs (halo + core), d pentatonic AM bells
+3. **mondrian** — particles snap to a grid lattice, primary-color chords on click
+4. **pollock** — particles thrown from rect edges with momentum + drag, drip widths vary a LOT, distorted drum + horn
+5. **klimt** — counter-rotating elliptical mosaic rings, gold-bell ostinato in F major
+6. **schiele** — meandering raw earthy lines, sparse FM cello
+7. **matisse** — big slow flat color blobs, warm AM sax pad
+8. **kandinsky** — many small lyrical orbits + streak shape, whole-tone chime arpeggio
+9. **frida kahlo** — particles bloom outward from the center in spiraling vines, nylon guitar in A phrygian
+10. **dalí** — gravity bias pulls everything down (melt), theremin with 1.8s portamento
 
-## Controls
+## controls
 
-- **Click / tap** the canvas — drop a vortex (and trigger a chord)
-- **Drag** — stir the currents (occasional accent notes)
-- **◀ / ▶** or **arrow keys** — change painter
-- **♪** or **M** — toggle sound (audio enables on first user gesture)
-- **F** — fullscreen
-- **H** — hide UI
-- **R** — reset
+click anywhere to drop a vortex (+ chord). drag to stir. ◀▶ or arrow keys to change painter. **M** toggles sound (it only inits on first click — browser policy). **F** fullscreen, **H** hide ui, **R** reset.
 
-## Tech
+## stack
 
-A single self-contained `index.html` (~1300 lines, no build step) using:
+one html file. no build, no node modules.
 
-- **[p5.js](https://p5js.org/)** for 2D canvas particle rendering
-- **[Tone.js](https://tonejs.github.io/)** for procedural audio (PolySynth / AMSynth / FMSynth / MetalSynth / PluckSynth / MonoSynth / MembraneSynth wired through reverb / distortion / filter chains)
-- Hand-CSS retrofuturist selector — brushed-metal radial gradients, recessed CRT-style readout, glowing LED indicators
-- VT323 + Share Tech Mono via Google Fonts
+- p5.js for canvas + particles
+- tone.js for audio (PolySynth, AMSynth, FMSynth, MetalSynth, PluckSynth, MonoSynth, MembraneSynth — different one per painter)
+- a chunk of hand-css for the retrofuturist selector at the bottom — brushed-metal radial gradients, recessed CRT readout, glowing LEDs. probably the part i spent the most time on after the motion engines tbh
 
-Each of ~1500 particles is updated each frame by one of ~10 motion engines blending Perlin noise vector fields, tangential circulation, polar lattice attraction, gravity bias, and ballistic momentum.
+~1500 particles, each updated each frame by one of the motion engines (flowfield / multiswirl / dab / drip / mosaic / meander / bloom / grid / polygon / pulse). monet was the hardest to land — too still and it's nothing, too lively and it stops feeling impressionist.
 
-## Run it locally
+things that didn't make it:
+- a 3d sphere version (looked cool but lost the painting feel)
+- picasso, hokusai, riley, rothko, kusama, basquiat, lee ufan, soulages — kept some, killed some, motion ended up too similar across a few of them
+- a "compose your own" mode where you mix engines
 
-```bash
-git clone https://github.com/lauramionel/painters-formations.git
+## run it
+
+```
+git clone https://github.com/lauramionel/painters-formations
 cd painters-formations
 open index.html
 ```
 
-No install, no build, no server.
+that's it.
 
-## License
+## license
 
-MIT
+MIT. take it apart, add painters, change the sounds. would love to see what you make
