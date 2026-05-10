@@ -6,7 +6,7 @@ ten painters. each one moves and sounds different.
 
 ---
 
-started after seeing [a patternseeing reel](https://www.instagram.com/reel/DXSa8wbiAZU/) — wanted something in the same spirit but online and that you could touch. then i started adding sound (one voice per painter), which took longer than the visuals tbh
+i wanted something you could actually touch — particles that move like a painter would paint, with sound to match. then the audio side took longer than the visuals tbh.
 
 each preset = palette + particle shape + motion engine + procedural tone.js voice. ten so far:
 
