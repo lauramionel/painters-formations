@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#000000" />
+<title>Formations — interactive currents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    height: 100%;
+    width: 100%;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  body {
+    font-family: "Share Tech Mono", ui-monospace, monospace;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><line x1='28' y1='4' x2='12' y2='20' stroke='%237fdbff' stroke-width='5' stroke-linecap='round' opacity='0.4'/><line x1='28' y1='4' x2='12' y2='20' stroke='%23cdeefd' stroke-width='2' stroke-linecap='round'/><circle cx='8' cy='24' r='5.5' fill='%23ff2db8' opacity='0.4'/><circle cx='8' cy='24' r='2.6' fill='%23ff2db8'/></svg>") 8 24, crosshair;
+  }
+  canvas { display: block; }
+
+  /* ------ tiny corner hints ------ */
+  #hint {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    color: rgba(255,255,255,0.32);
+    font-family: "Share Tech Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.7;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 3;
+    user-select: none;
+  }
+  #hint.hidden { opacity: 0; }
+  #hint .label { color: rgba(127, 219, 255, 0.55); }
+  #hint .key {
+    display: inline-block;
+    padding: 1px 5px;
+    margin-left: 4px;
+    background: rgba(127,219,255,0.06);
+    border: 1px solid rgba(127,219,255,0.15);
+    border-radius: 3px;
+    color: rgba(127,219,255,0.65);
+    font-size: 10px;
+  }
+
+  /* ------ retrofuturist selector ------ */
+  #selector {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, #1a1a1c 0%, #0a0a0c 100%);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.6),
+      0 14px 40px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.07),
+      inset 0 -1px 0 rgba(0,0,0,0.5);
+    z-index: 4;
+    user-select: none;
+    transition: opacity 0.5s ease;
+  }
+  #selector.hidden { opacity: 0; pointer-events: none; }
+
+  /* big analog button */
+  .bigbtn {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 22%, #5a5a5e 0%, #2c2c2e 45%, #16161a 100%);
+    color: rgba(255,255,255,0.88);
+    font-family: "Share Tech Mono", ui-monospace, monospace;
+    font-size: 22px;
+    line-height: 60px;
+    cursor: pointer;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04),
+      0 3px 6px rgba(0,0,0,0.55),
+      0 8px 16px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      inset 0 -3px 8px rgba(0,0,0,0.55);
+    transition: transform 80ms ease, box-shadow 80ms ease, background 120ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 0 6px rgba(127,219,255,0.3);
+    position: relative;
+  }
+  .bigbtn::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.05), transparent 60%);
+    pointer-events: none;
+  }
+  .bigbtn:hover {
+    background:
+      radial-gradient(circle at 30% 22%, #6a6a6e 0%, #34343a 45%, #1a1a1e 100%);
+    color: #cdeefd;
+    text-shadow: 0 0 10px rgba(127,219,255,0.6);
+  }
+  .bigbtn:active {
+    background:
+      radial-gradient(circle at 30% 75%, #4a4a4e 0%, #1c1c1f 45%, #0a0a0c 100%);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04),
+      0 1px 2px rgba(0,0,0,0.7),
+      inset 0 3px 8px rgba(0,0,0,0.7),
+      inset 0 -1px 0 rgba(255,255,255,0.04);
+    transform: translateY(1px);
+  }
+
+  /* small toggle (mute) */
+  .smallbtn {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    width: 38px;
+    height: 38px;
+    align-self: center;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 22%, #3e3e42 0%, #1e1e22 50%, #0e0e10 100%);
+    color: rgba(127, 219, 255, 0.45);
+    font-family: "Share Tech Mono", ui-monospace, monospace;
+    font-size: 16px;
+    line-height: 38px;
+    cursor: pointer;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.03),
+      0 2px 4px rgba(0,0,0,0.5),
+      0 4px 10px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.12),
+      inset 0 -2px 5px rgba(0,0,0,0.5);
+    transition: color 200ms ease, transform 80ms ease, box-shadow 80ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .smallbtn:hover { color: #cdeefd; }
+  .smallbtn:active { transform: translateY(1px); }
+  #mute.ready {
+    color: #7fdbff;
+    text-shadow: 0 0 8px rgba(127, 219, 255, 0.6);
+  }
+  #mute.muted {
+    color: rgba(255, 80, 80, 0.55);
+    text-shadow: 0 0 6px rgba(255, 80, 80, 0.35);
+  }
+
+  /* recessed display panel */
+  #display {
+    min-width: 280px;
+    text-align: center;
+    padding: 8px 16px 10px;
+    background: linear-gradient(180deg, #050708 0%, #0a0d10 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow:
+      inset 0 2px 6px rgba(0,0,0,0.85),
+      inset 0 -1px 1px rgba(255,255,255,0.04),
+      0 0 0 1px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  #number {
+    font-family: "VT323", ui-monospace, monospace;
+    color: rgba(127,219,255,0.65);
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    text-shadow: 0 0 8px rgba(127,219,255,0.45);
+    line-height: 1;
+  }
+  #artist {
+    color: #cdeefd;
+    font-family: "Share Tech Mono", ui-monospace, monospace;
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-shadow: 0 0 14px rgba(205,238,253,0.55), 0 0 28px rgba(127,219,255,0.25);
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+  #leds {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
+    height: 8px;
+  }
+  .led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(127,219,255,0.10);
+    box-shadow: inset 0 0 1px rgba(0,0,0,0.6);
+    transition: all 200ms ease;
+    cursor: pointer;
+  }
+  .led:hover { background: rgba(127,219,255,0.30); }
+  .led.active {
+    background: #7fdbff;
+    box-shadow:
+      0 0 6px #7fdbff,
+      0 0 12px rgba(127,219,255,0.7),
+      inset 0 0 1px rgba(255,255,255,0.6);
+    transform: scale(1.3);
+  }
+
+  /* status hidden — selector replaces it */
+  #status { display: none; }
+
+  @media (max-width: 560px) {
+    #selector {
+      top: auto;
+      right: auto;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%);
+      gap: 10px;
+      padding: 10px 12px;
+    }
+    .bigbtn { width: 48px; height: 48px; font-size: 18px; line-height: 48px; }
+    #display { min-width: 200px; padding: 6px 10px; }
+    #number { font-size: 12px; }
+    #artist { font-size: 13px; letter-spacing: 0.16em; }
+    .led { width: 4px; height: 4px; }
+    #leds { gap: 2px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="hint">
+  <div><span class="label">drag</span> · stir the currents</div>
+  <div><span class="label">tap</span> · drop a vortex</div>
+  <div style="margin-top:6px;">
+    <span class="key">M</span> sound
+    <span class="key">F</span> fullscreen
+    <span class="key">H</span> hide
+    <span class="key">R</span> reset
+  </div>
+</div>
+
+<div id="selector">
+  <button id="prev" class="bigbtn" aria-label="previous artist">◀</button>
+  <div id="display">
+    <div id="number">01 / 25</div>
+    <div id="artist">VAN GOGH</div>
+    <div id="leds"></div>
+  </div>
+  <button id="next" class="bigbtn" aria-label="next artist">▶</button>
+  <button id="mute" class="smallbtn" aria-label="toggle sound" title="toggle sound (M)">♫</button>
+</div>
+
+<div id="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.min.js"></script>
+<script>
+"use strict";
+
+// ============================================================
+//  ARTIST PRESETS
+//  each preset bundles palette + particle shape + motion engine
+//  motion: flowfield | dab | drip | grid | bands | scribble | pulse
+//          (flowfield is the default ambient engine; others are signature
+//           gestures of specific painters)
+//  optional flowfield modifiers: biasX, biasY (constant directional pull),
+//                                waveY (sinusoidal vertical ripple)
+// ============================================================
+const ARTIST_PRESETS = [
+  // Starry Night — multiple co-existing swirl centers
+  { name: "Van Gogh",   motion: "multiswirl", numSwirls: 4,
+    palette: ["#1e3a8a","#1c4992","#2563eb","#fbbf24","#f59e0b","#fde68a","#e7d8b3","#0c4a6e"],
+    shape: "dash",     sizeRange: [2.2, 3.6], speedRange: [0.5, 1.1],
+    blend: 0, noiseScale: 0.0024, noiseSpeed: 0.00050, fade: 16, inertia: 0.93, flow: 2.4 },
+
+  // Impressionism — soft directional brush strokes (halo + core), fading in & out
+  { name: "Monet",      motion: "dab",
+    palette: ["#bfd5e3","#d8b4cd","#f5e3c4","#a4c8b1","#e8c2c8","#c7d8b3","#fdfdfd","#9bb4cc","#deb6c8"],
+    shape: "softbrush", sizeRange: [1.6, 2.6], speedRange: [0.3, 0.7],
+    blend: 0, noiseScale: 0.0014, noiseSpeed: 0.00025, fade: 6, inertia: 0.96, flow: 1.0 },
+
+  // Neo-plasticism — primary-color squares snapping between grid intersections
+  { name: "Mondrian",   motion: "grid", gridSize: 56,
+    palette: ["#dc2626","#2563eb","#facc15","#0a0a0a","#fafafa"],
+    shape: "square",   sizeRange: [2.6, 3.6], speedRange: [0.4, 0.9],
+    blend: 0, noiseScale: 0, noiseSpeed: 0, fade: 22, inertia: 0.97, flow: 1.4 },
+
+  // Drip painting — ballistic launches from edge with curving decay; mostly thin spray with rare thick splats
+  { name: "Pollock",    motion: "drip",
+    palette: ["#0a0a0a","#fafafa","#dc2626","#92400e","#0e7490","#a16207","#854d0e"],
+    shape: "streak",   sizeRange: [0.6, 4.5], speedRange: [0.6, 1.4], sizeBias: 2.6,
+    blend: 0, noiseScale: 0.0050, noiseSpeed: 0.00140, fade: 10, inertia: 0.85, flow: 3.0 },
+
+  // Mosaic ornament — counter-rotating concentric tile rings
+  { name: "Klimt",      motion: "mosaic", numRings: 7, numSectorsBase: 5,
+    palette: ["#facc15","#ca8a04","#fde047","#a16207","#7c2d12","#fef9c3","#0a0a0a","#451a03","#92400e"],
+    shape: "square",   sizeRange: [2.0, 3.4], speedRange: [0.5, 0.9],
+    blend: 0, noiseScale: 0.0014, noiseSpeed: 0.00020, fade: 6, inertia: 0.94, flow: 1.6 },
+
+  // Expressionist figure-study — long graceful curves like body contours
+  { name: "Schiele",    motion: "meander",
+    palette: ["#3f1d0a","#7c2d12","#a16207","#d4a373","#e8b4a0","#1c1917","#fafafa","#92400e","#6b3410"],
+    shape: "streak",   sizeRange: [1.4, 2.2], speedRange: [0.4, 0.9],
+    blend: 0, noiseScale: 0.0008, noiseSpeed: 0.00040, fade: 6, inertia: 0.94, flow: 1.6 },
+
+  // Cutouts — big slow flat color blobs
+  { name: "Matisse",    motion: "flowfield",
+    palette: ["#dc2626","#f97316","#fbbf24","#0e7490","#16a34a","#db2777","#2563eb","#7c3aed","#fafafa"],
+    shape: "glow",     sizeRange: [3.6, 5.6], speedRange: [0.2, 0.5],
+    blend: 0.30, noiseScale: 0.0010, noiseSpeed: 0.00020, fade: 4, inertia: 0.97, flow: 0.9 },
+
+  // Compositions — many small lyrical orbits
+  { name: "Kandinsky",  motion: "multiswirl", numSwirls: 7,
+    palette: ["#dc2626","#fbbf24","#2563eb","#0a0a0a","#fafafa","#7c3aed","#16a34a","#f97316"],
+    shape: "streak",   sizeRange: [1.6, 2.6], speedRange: [0.6, 1.2],
+    blend: 0, noiseScale: 0.0028, noiseSpeed: 0.00050, fade: 14, inertia: 0.91, flow: 2.0 },
+
+  // Bloom — particles burst outward from center in spiraling vines
+  { name: "Frida Kahlo", motion: "bloom",
+    palette: ["#be185d","#dc2626","#f97316","#15803d","#0e7490","#fbbf24","#7f1d1d"],
+    shape: "petal",    sizeRange: [2.0, 3.2], speedRange: [0.5, 1.0],
+    blend: 0, noiseScale: 0.0030, noiseSpeed: 0.00050, fade: 8, inertia: 0.93, flow: 2.4 },
+
+  // Surrealism — heavy downward melt with long stretching drips
+  { name: "Dalí",       motion: "flowfield", biasY: 1.4,
+    palette: ["#fbbf24","#0ea5e9","#f97316","#7c2d12","#fafafa","#dc2626"],
+    shape: "smear",    sizeRange: [2.2, 3.6], speedRange: [0.4, 0.8],
+    blend: 0.02, noiseScale: 0.0010, noiseSpeed: 0.00025, fade: 3, inertia: 0.96, flow: 1.4 },
+];
+
+// ============================================================
+//  STATE
+// ============================================================
+const GLOBAL_SPEED = 0.55;   // master tempo: lower = slower, more meditative
+
+let particles = [];
+let vortices = [];
+let stirs = [];
+let presetIdx = 0;
+let cx, cy, R, RW, RH;   // RW/RH = half-width/half-height of bounded rect; R = min(RW,RH)
+let particleCount = 1500;
+
+function computeBounds() {
+  const W = width, H = height;
+  // tighter framing on desktop for a more painting-on-a-wall feel; mobile uses the screen
+  const padding = (W >= H) ? 0.24 : 0.06;
+  let availW = W * (1 - 2 * padding);
+  let availH = H * (1 - 2 * padding);
+  const targetRatio = (W >= H) ? 1.5 : (2 / 3);  // landscape 3:2 on desktop, portrait 2:3 on mobile
+  const availRatio = availW / availH;
+  if (availRatio > targetRatio) availW = availH * targetRatio;
+  else                          availH = availW / targetRatio;
+  RW = availW / 2;
+  RH = availH / 2;
+  R = Math.min(RW, RH);
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function targetParticleCount() {
+  const area = Math.PI * R * R;
+  const n = Math.round(area / 240);
+  return Math.max(800, Math.min(2400, n));
+}
+
+function makeParticle(p) {
+  const preset = ARTIST_PRESETS[presetIdx];
+  const motion = preset.motion || "flowfield";
+
+  // common attributes
+  p.colorHex = preset.palette[Math.floor(Math.random() * preset.palette.length)];
+  let c = color(p.colorHex);
+  p.r = red(c); p.g = green(c); p.b = blue(c);
+  // optional sizeBias>1 → heavy-tailed (mostly small, rare thick); default uniform
+  const _sb = preset.sizeBias || 1;
+  const _sizeT = _sb === 1 ? Math.random() : Math.pow(Math.random(), _sb);
+  p.size = preset.sizeRange[0] + _sizeT * (preset.sizeRange[1] - preset.sizeRange[0]);
+  p.speed = preset.speedRange[0] + Math.random() * (preset.speedRange[1] - preset.speedRange[0]);
+  p.age = 0;
+  p.seed = Math.random() * 1000;
+  p.vx = 0; p.vy = 0;
+  p.dirAngle = undefined;
+  p.nextTurn = undefined;
+
+  // motion-specific spawn
+  if (motion === "drip") {
+    // launch from one of the four rectangle edges, aimed inward
+    const edge = Math.floor(Math.random() * 4);
+    let dirAngle;
+    if (edge === 0) {           // top edge → fly down
+      p.x = cx + (Math.random() * 2 - 1) * RW * 0.95;
+      p.y = cy - RH * 0.95;
+      dirAngle = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+    } else if (edge === 1) {    // right edge → fly left
+      p.x = cx + RW * 0.95;
+      p.y = cy + (Math.random() * 2 - 1) * RH * 0.95;
+      dirAngle = Math.PI + (Math.random() - 0.5) * 0.8;
+    } else if (edge === 2) {    // bottom edge → fly up
+      p.x = cx + (Math.random() * 2 - 1) * RW * 0.95;
+      p.y = cy + RH * 0.95;
+      dirAngle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+    } else {                    // left edge → fly right
+      p.x = cx - RW * 0.95;
+      p.y = cy + (Math.random() * 2 - 1) * RH * 0.95;
+      dirAngle = 0 + (Math.random() - 0.5) * 0.8;
+    }
+    const launchSpeed = 3 + Math.random() * 6;
+    p.vx = Math.cos(dirAngle) * launchSpeed;
+    p.vy = Math.sin(dirAngle) * launchSpeed;
+    p.life = 70 + Math.random() * 110;
+  } else if (motion === "grid") {
+    const gs = preset.gridSize || 60;
+    const halfW = RW * 0.85, halfH = RH * 0.85;
+    const gx = Math.round(((Math.random() * 2 - 1) * halfW) / gs) * gs + cx;
+    const gy = Math.round(((Math.random() * 2 - 1) * halfH) / gs) * gs + cy;
+    p.x = gx; p.y = gy;
+    p.targetX = gx; p.targetY = gy;
+    p.life = 200 + Math.random() * 320;
+  } else if (motion === "bands") {
+    const numBands = preset.numBands || 4;
+    const band = Math.floor(Math.random() * numBands);
+    const spacing = (RH * 1.7) / numBands;
+    p.bandY = cy + (band - (numBands - 1) / 2) * spacing;
+    if (preset.bandPalettes && preset.bandPalettes[band]) {
+      const bp = preset.bandPalettes[band];
+      p.colorHex = bp[Math.floor(Math.random() * bp.length)];
+      c = color(p.colorHex);
+      p.r = red(c); p.g = green(c); p.b = blue(c);
+    }
+    const ax = (Math.random() * 2 - 1);
+    p.x = cx + ax * RW * 0.92;
+    p.y = p.bandY + (Math.random() - 0.5) * 28;
+    p.life = 220 + Math.random() * 360;
+  } else if (motion === "dab") {
+    p.x = cx + (Math.random() * 2 - 1) * RW * 0.95;
+    p.y = cy + (Math.random() * 2 - 1) * RH * 0.95;
+    p.life = 35 + Math.random() * 80;
+  } else if (motion === "stroke") {
+    // spawn at one edge, with a direction toward the opposite edge
+    const baseAngle = preset.strokeAngle !== undefined ? preset.strokeAngle : Math.PI / 2;
+    const angle = baseAngle + (Math.random() - 0.5) * 0.18;
+    const cosA = Math.cos(baseAngle), sinA = Math.sin(baseAngle);
+    // distance from center to rect edge in the OPPOSITE direction
+    const distToEdge = (Math.abs(cosA) > Math.abs(sinA))
+      ? RW * 0.98 / Math.max(Math.abs(cosA), 1e-6)
+      : RH * 0.98 / Math.max(Math.abs(sinA), 1e-6);
+    const perpX = -sinA, perpY = cosA;
+    const perpRange = (Math.abs(cosA) > Math.abs(sinA)) ? RH * 0.95 : RW * 0.95;
+    const spread = (Math.random() * 2 - 1) * perpRange;
+    p.x = cx - cosA * distToEdge + perpX * spread;
+    p.y = cy - sinA * distToEdge + perpY * spread;
+    p.dirAngle = angle;
+    p.life = 180 + Math.random() * 180;
+  } else if (motion === "mosaic") {
+    const numRings = preset.numRings || 7;
+    const numSectorsBase = preset.numSectorsBase || 5;
+    const ring = Math.floor(Math.random() * numRings);
+    const sectorsThisRing = Math.max(6, Math.floor((ring + 1) * numSectorsBase));
+    const sector = Math.floor(Math.random() * sectorsThisRing);
+    p.m_ring = ring;
+    p.m_sector = sector;
+    p.m_sectors = sectorsThisRing;
+    const ringFrac = 0.15 + 0.85 * (ring + 1) / numRings;
+    const angle = (sector / sectorsThisRing) * Math.PI * 2;
+    p.x = cx + Math.cos(angle) * RW * ringFrac;
+    p.y = cy + Math.sin(angle) * RH * ringFrac;
+    p.life = 220 + Math.random() * 320;
+  } else if (motion === "bloom") {
+    // spawn near center with a small initial outward kick
+    const a = Math.random() * Math.PI * 2;
+    const r = R * 0.04 + Math.random() * R * 0.04;
+    p.x = cx + Math.cos(a) * r;
+    p.y = cy + Math.sin(a) * r;
+    p.vx = Math.cos(a) * 0.6;
+    p.vy = Math.sin(a) * 0.6;
+    p.life = 100 + Math.random() * 130;
+  } else {
+    // flowfield, scribble, pulse, polygon, fragment — uniform spawn within the rectangle
+    p.x = cx + (Math.random() * 2 - 1) * RW * 0.95;
+    p.y = cy + (Math.random() * 2 - 1) * RH * 0.95;
+    p.life = 100 + Math.random() * 220;
+  }
+
+  p.px = p.x;
+  p.py = p.y;
+  return p;
+}
+
+// ============================================================
+//  MOTION ENGINES
+//  each returns a force {fx, fy} for the given particle
+// ============================================================
+function updateFlowfield(p, preset, t) {
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 4;
+  const nfx = Math.cos(ang), nfy = Math.sin(ang);
+  const rdx = p.x - cx, rdy = p.y - cy;
+  const rd = Math.sqrt(rdx * rdx + rdy * rdy) + 1e-6;
+  const tfx = -rdy / rd, tfy = rdx / rd;
+  const b = preset.blend;
+  let fx = nfx * (1 - b) + tfx * b;
+  let fy = nfy * (1 - b) + tfy * b;
+  if (preset.biasX) fx += preset.biasX;
+  if (preset.biasY) fy += preset.biasY;
+  if (preset.waveY) fy += Math.sin(p.x * 0.008 + t * 8) * preset.waveY;
+  return { fx, fy };
+}
+
+function updateScribble(p, preset, t) {
+  // very high-frequency noise → rapid sharp turns
+  const ns = preset.noiseScale * 3;
+  const ang = noise(p.x * ns, p.y * ns, t * 4) * Math.PI * 6;
+  const fx = Math.cos(ang);
+  const fy = Math.sin(ang);
+  // slow drift component prevents particles getting stuck
+  const dAng = noise(p.x * 0.0008, p.y * 0.0008, t * 0.4) * Math.PI * 2;
+  return { fx: fx + Math.cos(dAng) * 0.25, fy: fy + Math.sin(dAng) * 0.25 };
+}
+
+function updateDab(p, preset, t) {
+  // tiny breathing + slow drift; the visual change comes from rapid respawns
+  const wx = Math.sin(t * 60 + p.seed) * 0.3;
+  const wy = Math.cos(t * 50 + p.seed * 1.3) * 0.3;
+  const ns = preset.noiseScale || 0.0008;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 2;
+  return { fx: wx + Math.cos(ang) * 0.18, fy: wy + Math.sin(ang) * 0.18 };
+}
+
+function updateGrid(p, preset, t) {
+  // periodically jump target to a neighboring cell
+  if (Math.abs(p.x - p.targetX) < 1 && Math.abs(p.y - p.targetY) < 1) {
+    if (Math.random() < 0.012) {
+      const gs = preset.gridSize || 60;
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      const d = dirs[Math.floor(Math.random() * dirs.length)];
+      const nx = p.targetX + d[0] * gs;
+      const ny = p.targetY + d[1] * gs;
+      const dx = nx - cx, dy = ny - cy;
+      if (Math.abs(dx) < RW * 0.85 && Math.abs(dy) < RH * 0.85) {
+        p.targetX = nx;
+        p.targetY = ny;
+      }
+    }
+  }
+  return { fx: (p.targetX - p.x) * 0.04, fy: (p.targetY - p.y) * 0.04 };
+}
+
+function updateBands(p, preset, t) {
+  // strong vertical pull to assigned band; gentle horizontal noise drift
+  const dy = p.bandY - p.y;
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 2;
+  return { fx: Math.cos(ang) * 0.4, fy: dy * 0.04 };
+}
+
+function updateDrip(p, preset, t) {
+  // small noise perturbation curves the trajectory mid-flight
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 4;
+  return { fx: Math.cos(ang) * 0.18, fy: Math.sin(ang) * 0.18 };
+}
+
+function initSwirls(preset) {
+  const n = preset.numSwirls || 4;
+  const swirls = [];
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.45;
+    const rad = 0.30 + Math.random() * 0.38;
+    swirls.push({
+      rx: Math.cos(ang) * rad,
+      ry: Math.sin(ang) * rad,
+      dir: Math.random() < 0.5 ? -1 : 1,
+    });
+  }
+  preset._swirls = swirls;
+}
+
+function updateMultiswirl(p, preset, t) {
+  if (!preset._swirls) initSwirls(preset);
+  const swirls = preset._swirls;
+  let fx = 0, fy = 0, totalW = 0;
+  for (let i = 0; i < swirls.length; i++) {
+    const s = swirls[i];
+    const sx = cx + s.rx * RW, sy = cy + s.ry * RH;
+    const dx = p.x - sx, dy = p.y - sy;
+    const d2 = dx * dx + dy * dy + 1;
+    const d = Math.sqrt(d2);
+    // proximity weighting — falls off with squared distance
+    const w = (R * R) / (R * R * 0.4 + d2);
+    fx += (-dy / d) * s.dir * w;
+    fy += ( dx / d) * s.dir * w;
+    totalW += w;
+  }
+  if (totalW > 0) { fx /= totalW; fy /= totalW; }
+  // Perlin variation on top to break up the symmetry
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 4;
+  fx += Math.cos(ang) * 0.35;
+  fy += Math.sin(ang) * 0.35;
+  // normalize so all swirl regions feel similar in pace
+  const m = Math.sqrt(fx * fx + fy * fy) + 1e-6;
+  return { fx: fx / m, fy: fy / m };
+}
+
+function updateStroke(p, preset, t) {
+  // each particle holds a fixed direction; small noise adds organic wander
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 2;
+  return {
+    fx: Math.cos(p.dirAngle) + Math.cos(ang) * 0.06,
+    fy: Math.sin(p.dirAngle) + Math.sin(ang) * 0.06,
+  };
+}
+
+function updateMosaic(p, preset, t) {
+  // each particle is anchored to an elliptical (ring, sector) lattice point;
+  // alternating rings counter-rotate, outer rings rotate slower; ellipse fits rect
+  const numRings = preset.numRings || 7;
+  const ringFrac = 0.15 + 0.85 * (p.m_ring + 1) / numRings;
+  const dir = (p.m_ring % 2 === 0) ? 1 : -1;
+  const rotSpeed = 0.0006 / (1 + p.m_ring * 0.15);
+  const angle = (p.m_sector / p.m_sectors) * Math.PI * 2 + dir * frameCount * rotSpeed;
+  const tx = cx + Math.cos(angle) * RW * ringFrac;
+  const ty = cy + Math.sin(angle) * RH * ringFrac;
+  return { fx: (tx - p.x) * 0.04, fy: (ty - p.y) * 0.04 };
+}
+
+function updateBloom(p, preset, t) {
+  // radial outward + tangential curl whose sign and magnitude noise-modulate
+  const dx = p.x - cx, dy = p.y - cy;
+  const d = Math.sqrt(dx * dx + dy * dy) + 1e-6;
+  const rfx = dx / d, rfy = dy / d;
+  const tfx = -dy / d, tfy = dx / d;
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 2;
+  const curl = Math.sin(ang) * 0.55;
+  return { fx: rfx * 0.7 + tfx * curl, fy: rfy * 0.7 + tfy * curl };
+}
+
+function updateMeander(p, preset, t) {
+  // each particle holds a slowly-drifting direction → long graceful curves
+  if (p.dirAngle === undefined) p.dirAngle = Math.random() * Math.PI * 2;
+  const ns = preset.noiseScale;
+  const drift = (noise(p.x * ns, p.y * ns, t) - 0.5) * 0.05;
+  p.dirAngle += drift;
+  return { fx: Math.cos(p.dirAngle), fy: Math.sin(p.dirAngle) };
+}
+
+function updateFragment(p, preset, t) {
+  // straight runs interrupted by sudden 60° / 90° turns
+  if (p.dirAngle === undefined) {
+    p.dirAngle = Math.random() * Math.PI * 2;
+    p.nextTurn = 18 + Math.floor(Math.random() * 30);
+  }
+  if (p.age >= p.nextTurn) {
+    const turnMag = Math.random() < 0.5 ? Math.PI / 3 : Math.PI / 2;
+    const turnSign = Math.random() < 0.5 ? -1 : 1;
+    p.dirAngle += turnMag * turnSign;
+    p.nextTurn = p.age + 18 + Math.floor(Math.random() * 30);
+  }
+  const ns = preset.noiseScale;
+  const ang = noise(p.x * ns, p.y * ns, t) * Math.PI * 4;
+  return {
+    fx: Math.cos(p.dirAngle) + Math.cos(ang) * 0.06,
+    fy: Math.sin(p.dirAngle) + Math.sin(ang) * 0.06,
+  };
+}
+
+function initPolygons(preset) {
+  const numPolygons = preset.numPolygons || 3;
+  const polys = [];
+  for (let i = 0; i < numPolygons; i++) {
+    polys.push({
+      // clustered near center — overlapping facets, not scattered
+      rx: (Math.random() - 0.5) * 0.5,
+      ry: (Math.random() - 0.5) * 0.5,
+      // larger so each shape dominates
+      radius: 0.26 + Math.random() * 0.16,
+      sides: [3, 4, 5][Math.floor(Math.random() * 3)],
+      rotation: Math.random() * Math.PI * 2,
+      // very slow rotation — meditative, not mechanical
+      rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (0.00018 + Math.random() * 0.00040),
+    });
+  }
+  preset._polys = polys;
+}
+
+function updatePolygon(p, preset, t) {
+  if (!preset._polys) initPolygons(preset);
+  const polys = preset._polys;
+  if (p.polyIdx === undefined) {
+    p.polyIdx = Math.floor(Math.random() * polys.length);
+    const poly = polys[p.polyIdx];
+    p.edgeIdx = Math.floor(Math.random() * poly.sides);
+    p.edgeFrac = Math.random();
+  }
+  const poly = polys[p.polyIdx];
+  // deliberate slow traversal of the perimeter
+  p.edgeFrac += 0.0035;
+  while (p.edgeFrac >= 1) {
+    p.edgeFrac -= 1;
+    p.edgeIdx = (p.edgeIdx + 1) % poly.sides;
+  }
+  // target = position along current edge
+  const v0 = (p.edgeIdx / poly.sides) * Math.PI * 2 + poly.rotation;
+  const v1 = ((p.edgeIdx + 1) / poly.sides) * Math.PI * 2 + poly.rotation;
+  const x0 = poly.rx + Math.cos(v0) * poly.radius;
+  const y0 = poly.ry + Math.sin(v0) * poly.radius;
+  const x1 = poly.rx + Math.cos(v1) * poly.radius;
+  const y1 = poly.ry + Math.sin(v1) * poly.radius;
+  const tx = cx + (x0 + (x1 - x0) * p.edgeFrac) * R;
+  const ty = cy + (y0 + (y1 - y0) * p.edgeFrac) * R;
+  return { fx: (tx - p.x) * 0.06, fy: (ty - p.y) * 0.06 };
+}
+
+function isPointerOverUI() {
+  const el = document.elementFromPoint(mouseX, mouseY);
+  if (!el) return false;
+  return el.tagName !== "CANVAS" && el.tagName !== "HTML" && el.tagName !== "BODY";
+}
+
+function changePreset(newIdx) {
+  presetIdx = (newIdx + ARTIST_PRESETS.length) % ARTIST_PRESETS.length;
+  background(0);
+  vortices.length = 0;
+  stirs.length = 0;
+  // re-roll cached swirl / polygon layouts so each visit gets a new composition
+  const np = ARTIST_PRESETS[presetIdx];
+  if (np._swirls) delete np._swirls;
+  if (np._polys) delete np._polys;
+  for (let i = 0; i < particles.length; i++) makeParticle(particles[i]);
+  updateUI();
+  buildVoiceForCurrentPreset();
+}
+
+function updateUI() {
+  const preset = ARTIST_PRESETS[presetIdx];
+  const total = ARTIST_PRESETS.length;
+  document.getElementById("number").textContent =
+    String(presetIdx + 1).padStart(2, "0") + " / " + String(total).padStart(2, "0");
+  document.getElementById("artist").textContent = preset.name;
+  const leds = document.querySelectorAll("#leds .led");
+  leds.forEach((el, i) => el.classList.toggle("active", i === presetIdx));
+}
+
+function buildLEDs() {
+  const c = document.getElementById("leds");
+  c.innerHTML = "";
+  for (let i = 0; i < ARTIST_PRESETS.length; i++) {
+    const led = document.createElement("div");
+    led.className = "led";
+    led.title = ARTIST_PRESETS[i].name;
+    led.addEventListener("click", () => changePreset(i));
+    c.appendChild(led);
+  }
+}
+
+// ============================================================
+//  SHAPE RENDERING
+//  alphaMod: 0..255 multiplier on particle color alpha
+// ============================================================
+function drawParticle(p, shape, alphaMod) {
+  const a = alphaMod !== undefined ? alphaMod : 255;
+  const sx = p.x, sy = p.y;
+  switch (shape) {
+    case "dot": {
+      noStroke();
+      fill(p.r, p.g, p.b, a);
+      circle(sx, sy, p.size);
+      break;
+    }
+    case "streak": {
+      stroke(p.r, p.g, p.b, a);
+      strokeWeight(p.size * 0.55);
+      strokeCap(ROUND);
+      line(p.px, p.py, sx, sy);
+      break;
+    }
+    case "dash": {
+      const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-6;
+      const dx = p.vx / sp, dy = p.vy / sp;
+      const len = p.size * 1.6;
+      stroke(p.r, p.g, p.b, a);
+      strokeWeight(p.size * 0.7);
+      strokeCap(SQUARE);
+      line(sx - dx * len, sy - dy * len, sx + dx * len, sy + dy * len);
+      break;
+    }
+    case "glow": {
+      noStroke();
+      fill(p.r, p.g, p.b, a * 0.11);
+      circle(sx, sy, p.size * 4.0);
+      fill(p.r, p.g, p.b, a * 0.78);
+      circle(sx, sy, p.size);
+      break;
+    }
+    case "square": {
+      noStroke();
+      fill(p.r, p.g, p.b, a);
+      const s = p.size;
+      rect(sx - s, sy - s, s * 2, s * 2);
+      break;
+    }
+    case "petal": {
+      const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-6;
+      const dx = p.vx / sp, dy = p.vy / sp;
+      const len = p.size * 1.0;
+      stroke(p.r, p.g, p.b, a);
+      strokeWeight(p.size * 0.85);
+      strokeCap(ROUND);
+      line(sx - dx * len, sy - dy * len, sx + dx * len, sy + dy * len);
+      break;
+    }
+    case "softbrush": {
+      // diffuse halo + soft core — watercolor / impressionist brushwork
+      const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-6;
+      const dx = p.vx / sp, dy = p.vy / sp;
+      const len = p.size * 0.9;
+      strokeCap(ROUND);
+      // outer halo
+      stroke(p.r, p.g, p.b, a * 0.18);
+      strokeWeight(p.size * 2.2);
+      line(sx - dx * len, sy - dy * len, sx + dx * len, sy + dy * len);
+      // mid wash
+      stroke(p.r, p.g, p.b, a * 0.45);
+      strokeWeight(p.size * 1.2);
+      line(sx - dx * len, sy - dy * len, sx + dx * len, sy + dy * len);
+      // bright core
+      stroke(p.r, p.g, p.b, a * 0.80);
+      strokeWeight(p.size * 0.55);
+      line(sx - dx * len, sy - dy * len, sx + dx * len, sy + dy * len);
+      break;
+    }
+    case "triangle": {
+      const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy) + 1e-6;
+      const dx = p.vx / sp, dy = p.vy / sp;
+      const px = -dy, py = dx;
+      const s = p.size * 1.4;
+      const tipX = sx + dx * s;
+      const tipY = sy + dy * s;
+      const baseCX = sx - dx * s * 0.55;
+      const baseCY = sy - dy * s * 0.55;
+      const off = s * 0.75;
+      noStroke();
+      fill(p.r, p.g, p.b, a);
+      triangle(tipX, tipY, baseCX + px * off, baseCY + py * off, baseCX - px * off, baseCY - py * off);
+      break;
+    }
+    case "smear": {
+      stroke(p.r, p.g, p.b, a * 0.78);
+      strokeWeight(p.size * 0.9);
+      strokeCap(ROUND);
+      line(p.px, p.py, sx, sy);
+      break;
+    }
+  }
+}
+
+// ============================================================
+//  P5
+// ============================================================
+function setup() {
+  createCanvas(window.innerWidth, window.innerHeight);
+  pixelDensity(Math.min(2, window.devicePixelRatio || 1));
+  cx = width / 2;
+  cy = height / 2;
+  computeBounds();
+  background(0);
+  noiseDetail(2, 0.5);
+  particleCount = targetParticleCount();
+  for (let i = 0; i < particleCount; i++) particles.push(makeParticle({}));
+
+  buildLEDs();
+  updateUI();
+  document.getElementById("prev").addEventListener("click", () => changePreset(presetIdx - 1));
+  document.getElementById("next").addEventListener("click", () => changePreset(presetIdx + 1));
+  document.getElementById("mute").addEventListener("click", async () => {
+    if (!audioReady) {
+      await ensureAudio();
+    } else {
+      toggleMute();
+    }
+  });
+
+  // any first interaction (canvas OR UI) resumes the audio context
+  const initAudioOnce = () => { ensureAudio(); };
+  window.addEventListener("mousedown", initAudioOnce, { once: true, capture: true });
+  window.addEventListener("touchstart", initAudioOnce, { once: true, capture: true });
+  window.addEventListener("keydown", initAudioOnce, { once: true, capture: true });
+}
+
+function draw() {
+  const preset = ARTIST_PRESETS[presetIdx];
+  const motion = preset.motion || "flowfield";
+
+  // trail-fade overlay
+  noStroke();
+  fill(0, 0, 0, preset.fade);
+  rect(0, 0, width, height);
+
+  const t = frameCount * preset.noiseSpeed * GLOBAL_SPEED;
+
+  for (let i = vortices.length - 1; i >= 0; i--) {
+    vortices[i].strength *= 0.992;
+    if (vortices[i].strength < 0.04) vortices.splice(i, 1);
+  }
+  for (let i = stirs.length - 1; i >= 0; i--) {
+    stirs[i].life--;
+    if (stirs[i].life <= 0) stirs.splice(i, 1);
+  }
+
+  // per-frame polygon rotation (Picasso) — keeps all polygons in lockstep
+  if (motion === "polygon") {
+    if (!preset._polys) initPolygons(preset);
+    for (let i = 0; i < preset._polys.length; i++) {
+      preset._polys[i].rotation += preset._polys[i].rotSpeed * GLOBAL_SPEED;
+    }
+  }
+
+  const inertia = preset.inertia;
+  const oneMinusI = 1 - inertia;
+  const flowSpeed = preset.flow * GLOBAL_SPEED;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    p.px = p.x;
+    p.py = p.y;
+
+    // dispatch motion engine
+    let force;
+    switch (motion) {
+      case "drip":       force = updateDrip(p, preset, t); break;
+      case "grid":       force = updateGrid(p, preset, t); break;
+      case "bands":      force = updateBands(p, preset, t); break;
+      case "dab":        force = updateDab(p, preset, t); break;
+      case "scribble":   force = updateScribble(p, preset, t); break;
+      case "multiswirl": force = updateMultiswirl(p, preset, t); break;
+      case "stroke":     force = updateStroke(p, preset, t); break;
+      case "mosaic":     force = updateMosaic(p, preset, t); break;
+      case "bloom":      force = updateBloom(p, preset, t); break;
+      case "meander":    force = updateMeander(p, preset, t); break;
+      case "fragment":   force = updateFragment(p, preset, t); break;
+      case "polygon":    force = updatePolygon(p, preset, t); break;
+      case "pulse":
+      case "flowfield":
+      default:           force = updateFlowfield(p, preset, t); break;
+    }
+    let fx = force.fx, fy = force.fy;
+
+    // rectangle containment (skip engines that handle their own boundary)
+    if (motion !== "grid" && motion !== "stroke" && motion !== "bloom" && motion !== "mosaic" && motion !== "polygon") {
+      const lx = p.x - cx, ly = p.y - cy;
+      const ax = Math.abs(lx), ay = Math.abs(ly);
+      if (ax > RW) {
+        const k = (ax - RW) * 0.012 + 0.015;
+        fx -= Math.sign(lx) * k;
+      } else if (ax > RW * 0.92) {
+        const k = (ax - RW * 0.92) / (RW * 0.08) * 0.02;
+        fx -= Math.sign(lx) * k;
+      }
+      if (ay > RH) {
+        const k = (ay - RH) * 0.012 + 0.015;
+        fy -= Math.sign(ly) * k;
+      } else if (ay > RH * 0.92) {
+        const k = (ay - RH * 0.92) / (RH * 0.08) * 0.02;
+        fy -= Math.sign(ly) * k;
+      }
+    }
+
+    // vortex influences
+    for (let j = 0; j < vortices.length; j++) {
+      const v = vortices[j];
+      const vdx = p.x - v.x, vdy = p.y - v.y;
+      const vd = Math.sqrt(vdx * vdx + vdy * vdy) + 1e-6;
+      const fall = Math.exp(-(vd * vd) / (v.radius * v.radius));
+      if (fall > 0.005) {
+        fx += (-vdy / vd) * v.strength * fall * 5 * v.dir;
+        fy += ( vdx / vd) * v.strength * fall * 5 * v.dir;
+        fx -= (vdx / vd) * v.strength * fall * 0.9;
+        fy -= (vdy / vd) * v.strength * fall * 0.9;
+      }
+    }
+
+    // stir influences
+    for (let j = 0; j < stirs.length; j++) {
+      const s = stirs[j];
+      const sdx = p.x - s.x, sdy = p.y - s.y;
+      const sd2 = sdx * sdx + sdy * sdy;
+      const SR = 130;
+      if (sd2 < SR * SR) {
+        const fall = (1 - Math.sqrt(sd2) / SR) * (s.life / 30);
+        fx += s.vx * fall * 0.07;
+        fy += s.vy * fall * 0.07;
+      }
+    }
+
+    // motion-specific integration
+    if (motion === "drip") {
+      // direct integration with drag — preserves momentum like thrown paint
+      p.vx = p.vx * 0.985 + fx * 0.4 * GLOBAL_SPEED;
+      p.vy = p.vy * 0.985 + fy * 0.4 * GLOBAL_SPEED;
+    } else if (motion === "grid") {
+      // crisp critically-damped step toward target
+      p.vx = p.vx * 0.65 + fx * GLOBAL_SPEED;
+      p.vy = p.vy * 0.65 + fy * GLOBAL_SPEED;
+    } else if (motion === "scribble") {
+      // low inertia → sharp turns
+      const I = 0.78;
+      p.vx = p.vx * I + fx * (1 - I) * flowSpeed * p.speed;
+      p.vy = p.vy * I + fy * (1 - I) * flowSpeed * p.speed;
+    } else {
+      p.vx = p.vx * inertia + fx * oneMinusI * flowSpeed * p.speed;
+      p.vy = p.vy * inertia + fy * oneMinusI * flowSpeed * p.speed;
+    }
+
+    p.x += p.vx;
+    p.y += p.vy;
+    p.age++;
+
+    // motion-specific death: drip dies when momentum runs out
+    let dead = p.age > p.life;
+    if (motion === "drip") {
+      const sp2 = p.vx * p.vx + p.vy * p.vy;
+      if (sp2 < 0.16) dead = true;
+    }
+    const lxe = Math.abs(p.x - cx), lye = Math.abs(p.y - cy);
+    const escaped = lxe > RW + 60 || lye > RH + 60;
+    if (dead || escaped) {
+      makeParticle(p);
+      continue;
+    }
+
+    // motion-specific alpha modulation
+    let drawA = 255;
+    if (motion === "dab") {
+      // fade in then out over the particle's life — soft impressionist dab
+      const lifeT = p.age / p.life;
+      drawA = Math.sin(lifeT * Math.PI) * 220 + 35;
+    } else if (motion === "pulse") {
+      // each particle pulses on its own phase — Kusama rhythm
+      const ph = 0.5 + 0.5 * Math.sin(frameCount * 0.05 + p.seed * 0.3);
+      drawA = 60 + 195 * ph;
+    } else if (motion === "stroke") {
+      // start opaque, fade as paint runs out (Lee Ufan / Soulages)
+      const lifeT = p.age / p.life;
+      drawA = (1 - lifeT) * 230 + 25;
+    }
+
+    drawParticle(p, preset.shape, drawA);
+  }
+}
+
+// ============================================================
+//  INTERACTION
+// ============================================================
+function mousePressed() {
+  if (isPointerOverUI()) return;
+  if (mouseY < 0 || mouseY > height) return;
+  spawnVortex(mouseX, mouseY);
+  ensureAudio().then(() => audioOnVortex(mouseX, mouseY));
+}
+
+function mouseDragged() {
+  if (isPointerOverUI()) return;
+  const vx = mouseX - pmouseX;
+  const vy = mouseY - pmouseY;
+  if (vx === 0 && vy === 0) return;
+  stirs.push({ x: mouseX, y: mouseY, vx, vy, life: 30 });
+  if (stirs.length > 80) stirs.shift();
+  audioOnStir(mouseX, mouseY, vx, vy);
+}
+
+function touchStarted() {
+  if (isPointerOverUI()) return true;
+  if (touches && touches.length) {
+    spawnVortex(touches[0].x, touches[0].y);
+    ensureAudio().then(() => audioOnVortex(touches[0].x, touches[0].y));
+  }
+  return false;
+}
+
+function touchMoved() {
+  if (isPointerOverUI()) return true;
+  if (touches && touches.length) {
+    const vx = touches[0].x - pmouseX;
+    const vy = touches[0].y - pmouseY;
+    stirs.push({ x: touches[0].x, y: touches[0].y, vx, vy, life: 30 });
+    if (stirs.length > 80) stirs.shift();
+    audioOnStir(touches[0].x, touches[0].y, vx, vy);
+  }
+  return false;
+}
+
+function spawnVortex(x, y) {
+  vortices.push({
+    x, y,
+    strength: 1.0,
+    radius: 110 + Math.random() * 50,
+    dir: Math.random() < 0.5 ? -1 : 1,
+  });
+  if (vortices.length > 8) vortices.shift();
+}
+
+function keyPressed() {
+  const k = (key || "").toLowerCase();
+  if (keyCode === RIGHT_ARROW || key === " ") {
+    changePreset(presetIdx + 1);
+  } else if (keyCode === LEFT_ARROW) {
+    changePreset(presetIdx - 1);
+  } else if (k === "h") {
+    document.getElementById("hint").classList.toggle("hidden");
+    document.getElementById("selector").classList.toggle("hidden");
+  } else if (k === "f") {
+    fullscreen(!fullscreen());
+  } else if (k === "m") {
+    ensureAudio().then(() => toggleMute());
+  } else if (k === "r") {
+    background(0);
+    vortices.length = 0;
+    stirs.length = 0;
+    for (let i = 0; i < particles.length; i++) makeParticle(particles[i]);
+  }
+}
+
+function windowResized() {
+  resizeCanvas(window.innerWidth, window.innerHeight);
+  cx = width / 2;
+  cy = height / 2;
+  computeBounds();
+  background(0);
+  particleCount = targetParticleCount();
+  while (particles.length < particleCount) particles.push(makeParticle({}));
+  while (particles.length > particleCount) particles.pop();
+}
+
+// ============================================================
+//  AUDIO — procedural voice per painter
+// ============================================================
+let audioReady = false;
+let audioMuted = false;
+let currentVoice = null;
+let audioInitPromise = null;
+
+async function ensureAudio() {
+  if (audioReady) return true;
+  if (audioInitPromise) return audioInitPromise;
+  if (typeof Tone === "undefined") return false;
+  audioInitPromise = (async () => {
+    try {
+      await Tone.start();
+      Tone.Destination.volume.value = -6;
+      audioReady = true;
+      buildVoiceForCurrentPreset();
+      updateMuteButton();
+      return true;
+    } catch (e) {
+      console.warn("audio init failed", e);
+      return false;
+    }
+  })();
+  return audioInitPromise;
+}
+
+function buildVoiceForCurrentPreset() {
+  if (currentVoice) {
+    try { currentVoice.dispose(); } catch (e) {}
+    currentVoice = null;
+  }
+  if (!audioReady) return;
+  const preset = ARTIST_PRESETS[presetIdx];
+  const factory = AUDIO_VOICES[preset.name];
+  if (!factory) return;
+  try {
+    currentVoice = factory();
+    if (currentVoice.start) currentVoice.start();
+  } catch (e) {
+    console.warn("voice build failed", e);
+    currentVoice = null;
+  }
+}
+
+function audioOnVortex(x, y) {
+  if (!currentVoice || audioMuted || !audioReady) return;
+  if (currentVoice.onVortex) {
+    try { currentVoice.onVortex(x, y); } catch (e) {}
+  }
+}
+
+function audioOnStir(x, y, vx, vy) {
+  if (!currentVoice || audioMuted || !audioReady) return;
+  if (currentVoice.onStir) {
+    try { currentVoice.onStir(x, y, vx, vy); } catch (e) {}
+  }
+}
+
+function toggleMute() {
+  audioMuted = !audioMuted;
+  if (typeof Tone !== "undefined" && Tone.Destination) {
+    Tone.Destination.mute = audioMuted;
+  }
+  updateMuteButton();
+}
+
+function updateMuteButton() {
+  const btn = document.getElementById("mute");
+  if (!btn) return;
+  btn.classList.toggle("muted", audioMuted);
+  btn.classList.toggle("ready", audioReady);
+  btn.textContent = audioMuted ? "♪̸" : (audioReady ? "♪" : "♫");
+}
+
+const _pickNote = (scale) => scale[Math.floor(Math.random() * scale.length)];
+
+const AUDIO_VOICES = {
+  // Van Gogh — emotional minor pad with slow swells
+  "Van Gogh": () => {
+    const reverb = new Tone.Reverb({ decay: 5, wet: 0.55 }).toDestination();
+    const synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "sine" },
+      envelope: { attack: 1.4, decay: 1.0, sustain: 0.7, release: 3 },
+    }).connect(reverb);
+    synth.volume.value = -10;
+    const scale = ["C3","Eb3","F3","G3","Bb3","C4","D4","Eb4","F4"];
+    let timer;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          synth.triggerAttackRelease(_pickNote(scale), "2n", undefined, 0.18);
+        }, 2400);
+      },
+      onVortex() {
+        synth.triggerAttackRelease(["C3","Eb3","G3","Bb3","D4"], "2n", undefined, 0.42);
+      },
+      onStir() {
+        if (Math.random() < 0.04) {
+          synth.triggerAttackRelease(_pickNote(scale), "8n", undefined, 0.18);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        synth.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Monet — soft watery dabs in D pentatonic
+  "Monet": () => {
+    const reverb = new Tone.Reverb({ decay: 7, wet: 0.65 }).toDestination();
+    const synth = new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 2,
+      envelope: { attack: 0.4, decay: 0.6, sustain: 0.3, release: 2.5 },
+    }).connect(reverb);
+    synth.volume.value = -14;
+    const scale = ["D4","E4","F#4","A4","B4","D5","E5","F#5","A5"];
+    let timer;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (Math.random() < 0.45) {
+            synth.triggerAttackRelease(_pickNote(scale), "4n", undefined, 0.10);
+          }
+        }, 700);
+      },
+      onVortex() {
+        synth.triggerAttackRelease([scale[0], scale[2], scale[4]], "2n", undefined, 0.25);
+      },
+      onStir() {
+        if (Math.random() < 0.06) {
+          synth.triggerAttackRelease(_pickNote(scale), "16n", undefined, 0.12);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        synth.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Mondrian — minimalist primary-color marimba pulses
+  "Mondrian": () => {
+    const reverb = new Tone.Reverb({ decay: 0.8, wet: 0.18 }).toDestination();
+    const synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.001, decay: 0.25, sustain: 0.05, release: 0.4 },
+    }).connect(reverb);
+    synth.volume.value = -12;
+    const colors = [["C4","E4","G4"], ["F3","A3","C4"], ["G3","B3","D4"]];
+    const scale = ["C3","E3","G3","C4","E4","G4","A4"];
+    let timer;
+    let beat = 0;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (beat % 4 === 0) synth.triggerAttackRelease("C3", "8n", undefined, 0.22);
+          else if (beat % 8 === 5) synth.triggerAttackRelease("G3", "8n", undefined, 0.16);
+          beat++;
+        }, 280);
+      },
+      onVortex() {
+        const chord = colors[Math.floor(Math.random() * colors.length)];
+        synth.triggerAttackRelease(chord, "4n", undefined, 0.4);
+      },
+      onStir() {
+        if (Math.random() < 0.02) {
+          synth.triggerAttackRelease(_pickNote(scale), "16n", undefined, 0.18);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        synth.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Pollock — free-jazz percussion + horn stabs in C blues
+  "Pollock": () => {
+    const distortion = new Tone.Distortion(0.32).toDestination();
+    const filter = new Tone.Filter(900, "bandpass").connect(distortion);
+    const drum = new Tone.MembraneSynth({
+      pitchDecay: 0.05,
+      envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.4 },
+    }).connect(filter);
+    drum.volume.value = -10;
+    const horn = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 1.6,
+      envelope: { attack: 0.04, decay: 0.3, sustain: 0.4, release: 0.5 },
+    }).toDestination();
+    horn.volume.value = -16;
+    const scale = ["C3","Eb3","F3","F#3","G3","Bb3","C4","Eb4","F4"];
+    let timer;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (Math.random() < 0.32) {
+            const pitch = ["C2","F2","A2"][Math.floor(Math.random() * 3)];
+            drum.triggerAttackRelease(pitch, "16n", undefined, 0.45);
+          }
+          if (Math.random() < 0.18) {
+            horn.triggerAttackRelease(_pickNote(scale), "8n", undefined, 0.22);
+          }
+        }, 380);
+      },
+      onVortex() {
+        drum.triggerAttackRelease("C2", "8n", undefined, 0.6);
+        horn.triggerAttackRelease([scale[0], scale[3], scale[5]], "8n", undefined, 0.32);
+      },
+      onStir() {
+        if (Math.random() < 0.10) {
+          horn.triggerAttackRelease(_pickNote(scale), "32n", undefined, 0.22);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        drum.dispose();
+        horn.dispose();
+        filter.dispose();
+        distortion.dispose();
+      },
+    };
+  },
+
+  // Klimt — gold-bell ostinato in F major
+  "Klimt": () => {
+    const reverb = new Tone.Reverb({ decay: 6, wet: 0.55 }).toDestination();
+    const bell = new Tone.PolySynth(Tone.MetalSynth, {
+      harmonicity: 6,
+      modulationIndex: 12,
+      resonance: 4000,
+      octaves: 1.5,
+      envelope: { attack: 0.001, decay: 1.2, release: 1.8 },
+    }).connect(reverb);
+    bell.volume.value = -28;
+    const scale = ["F4","A4","C5","F5","A5","C6"];
+    let timer;
+    let i = 0;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          bell.triggerAttackRelease(scale[i % scale.length], "8n", undefined, 0.13);
+          i++;
+        }, 600);
+      },
+      onVortex() {
+        const chord = ["F4","A4","C5","F5"];
+        chord.forEach((n, idx) => {
+          setTimeout(() => bell.triggerAttackRelease(n, "4n", undefined, 0.25), idx * 100);
+        });
+      },
+      onStir() {
+        if (Math.random() < 0.05) {
+          bell.triggerAttackRelease(_pickNote(scale), "16n", undefined, 0.12);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        bell.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Schiele — sparse cello, A minor with chromatic flavor
+  "Schiele": () => {
+    const reverb = new Tone.Reverb({ decay: 3, wet: 0.4 }).toDestination();
+    const cello = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 1,
+      modulationIndex: 5,
+      envelope: { attack: 0.7, decay: 0.5, sustain: 0.6, release: 2 },
+    }).connect(reverb);
+    cello.volume.value = -14;
+    const scale = ["A2","B2","C3","D3","E3","F3","G3","A3","C4"];
+    let timer;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (Math.random() < 0.30) {
+            cello.triggerAttackRelease(_pickNote(scale), "2n", undefined, 0.22);
+          }
+        }, 2800);
+      },
+      onVortex() {
+        cello.triggerAttackRelease(_pickNote(scale.slice(0, 4)), "1n", undefined, 0.4);
+      },
+      onStir() {
+        if (Math.random() < 0.025) {
+          cello.triggerAttackRelease(_pickNote(scale), "8n", undefined, 0.18);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        cello.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Matisse — warm sax-like pads in C major pentatonic
+  "Matisse": () => {
+    const reverb = new Tone.Reverb({ decay: 3, wet: 0.4 }).toDestination();
+    const sax = new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 1.5,
+      envelope: { attack: 0.5, decay: 0.5, sustain: 0.7, release: 1.5 },
+    }).connect(reverb);
+    sax.volume.value = -10;
+    const scale = ["C3","D3","E3","G3","A3","C4","D4","E4","G4","A4"];
+    let timer;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (Math.random() < 0.4) {
+            sax.triggerAttackRelease(_pickNote(scale), "2n", undefined, 0.18);
+          }
+        }, 1500);
+      },
+      onVortex() {
+        sax.triggerAttackRelease([scale[0], scale[2], scale[4], scale[6]], "2n", undefined, 0.32);
+      },
+      onStir() {
+        if (Math.random() < 0.05) {
+          sax.triggerAttackRelease(_pickNote(scale), "4n", undefined, 0.16);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        sax.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Kandinsky — whole-tone chime arpeggios
+  "Kandinsky": () => {
+    const reverb = new Tone.Reverb({ decay: 4, wet: 0.5 }).toDestination();
+    const chime = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 3,
+      envelope: { attack: 0.001, decay: 0.6, sustain: 0.1, release: 1.2 },
+    }).connect(reverb);
+    chime.volume.value = -16;
+    const scale = ["C4","D4","E4","F#4","G#4","A#4","C5","D5","E5","F#5"];
+    let timer;
+    let i = 0;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          chime.triggerAttackRelease(scale[(i * 3 + Math.floor(i / 4)) % scale.length], "8n", undefined, 0.16);
+          i++;
+        }, 280);
+      },
+      onVortex() {
+        chime.triggerAttackRelease([scale[0], scale[2], scale[4], scale[6]], "4n", undefined, 0.3);
+      },
+      onStir() {
+        if (Math.random() < 0.07) {
+          chime.triggerAttackRelease(_pickNote(scale), "16n", undefined, 0.18);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        chime.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Frida Kahlo — nylon guitar in A phrygian, Mexican folk pulse
+  "Frida Kahlo": () => {
+    const reverb = new Tone.Reverb({ decay: 2, wet: 0.3 }).toDestination();
+    const guitar = new Tone.PluckSynth({
+      attackNoise: 0.5,
+      dampening: 4000,
+      resonance: 0.7,
+    }).connect(reverb);
+    guitar.volume.value = -8;
+    const scale = ["A2","Bb2","C3","D3","E3","F3","G3","A3","Bb3","C4","D4","E4"];
+    let timer;
+    let beat = 0;
+    return {
+      start() {
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          if (beat % 3 === 0) {
+            guitar.triggerAttackRelease("A2", "8n", undefined, 0.4);
+          } else if (beat % 3 === 2) {
+            guitar.triggerAttackRelease(scale[Math.floor(Math.random() * 5) + 4], "16n", undefined, 0.25);
+          }
+          beat++;
+        }, 380);
+      },
+      onVortex() {
+        const chord = ["A2","C3","E3","A3"];
+        chord.forEach((n, idx) => {
+          setTimeout(() => guitar.triggerAttackRelease(n, "4n", undefined, 0.4), idx * 30);
+        });
+      },
+      onStir() {
+        if (Math.random() < 0.05) {
+          guitar.triggerAttackRelease(_pickNote(scale), "32n", undefined, 0.3);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        guitar.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+
+  // Dalí — pitch-bending theremin, woozy slides
+  "Dalí": () => {
+    const reverb = new Tone.Reverb({ decay: 8, wet: 0.65 }).toDestination();
+    const filter = new Tone.Filter({ frequency: 1200, type: "lowpass", Q: 2 }).connect(reverb);
+    const theremin = new Tone.MonoSynth({
+      oscillator: { type: "sine" },
+      portamento: 1.8,
+      envelope: { attack: 1, decay: 0.5, sustain: 0.7, release: 2 },
+    }).connect(filter);
+    theremin.volume.value = -16;
+    const notes = ["G3","A3","B3","C4","D4","E4","F4","F#4","G4","A4","C#4"];
+    let lastNote = "A3";
+    let timer;
+    return {
+      start() {
+        theremin.triggerAttack(lastNote, undefined, 0.25);
+        timer = setInterval(() => {
+          if (audioMuted) return;
+          lastNote = notes[Math.floor(Math.random() * notes.length)];
+          theremin.setNote(lastNote);
+        }, 4500);
+      },
+      onVortex() {
+        theremin.setNote(lastNote);
+        setTimeout(() => theremin.setNote("G2"), 250);
+      },
+      onStir() {
+        if (Math.random() < 0.025) {
+          lastNote = notes[Math.floor(Math.random() * notes.length)];
+          theremin.setNote(lastNote);
+        }
+      },
+      dispose() {
+        clearInterval(timer);
+        theremin.triggerRelease();
+        theremin.dispose();
+        filter.dispose();
+        reverb.dispose();
+      },
+    };
+  },
+};
+</script>
+</body>
+</html>
