@@ -167,6 +167,10 @@
     color: rgba(255, 80, 80, 0.55);
     text-shadow: 0 0 6px rgba(255, 80, 80, 0.35);
   }
+  #mic.active {
+    color: #ffb84a;
+    text-shadow: 0 0 8px rgba(255, 184, 74, 0.7);
+  }
 
   /* recessed display panel */
   #display {
@@ -275,6 +279,7 @@
   </div>
   <button id="next" class="bigbtn" aria-label="next artist">▶</button>
   <button id="mute" class="smallbtn" aria-label="toggle sound" title="toggle sound (M)">♫</button>
+  <button id="mic" class="smallbtn" aria-label="toggle mic reactivity" title="let the painting react to sound (microphone)">○</button>
 </div>
 
 <div id="status"></div>
@@ -909,6 +914,7 @@ function setup() {
       toggleMute();
     }
   });
+  document.getElementById("mic").addEventListener("click", () => toggleMic());
 
   // any first interaction (canvas OR UI) resumes the audio context
   const initAudioOnce = () => { ensureAudio(); };
@@ -947,7 +953,16 @@ function draw() {
 
   const inertia = preset.inertia;
   const oneMinusI = 1 - inertia;
-  const flowSpeed = preset.flow * GLOBAL_SPEED;
+  // mic reactivity: louder sound → faster particles, occasional vortex on peaks
+  const audioLevel = readMicLevel();
+  const audioBoost = 1 + audioLevel * 6;
+  if (audioLevel > 0.07 && Math.random() < audioLevel * 0.12) {
+    spawnVortex(
+      cx + (Math.random() * 2 - 1) * RW * 1.4,
+      cy + (Math.random() * 2 - 1) * RH * 1.4
+    );
+  }
+  const flowSpeed = preset.flow * GLOBAL_SPEED * audioBoost;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -1025,12 +1040,12 @@ function draw() {
     // motion-specific integration
     if (motion === "drip") {
       // direct integration with drag — preserves momentum like thrown paint
-      p.vx = p.vx * 0.985 + fx * 0.4 * GLOBAL_SPEED;
-      p.vy = p.vy * 0.985 + fy * 0.4 * GLOBAL_SPEED;
+      p.vx = p.vx * 0.985 + fx * 0.4 * GLOBAL_SPEED * audioBoost;
+      p.vy = p.vy * 0.985 + fy * 0.4 * GLOBAL_SPEED * audioBoost;
     } else if (motion === "grid") {
       // crisp critically-damped step toward target
-      p.vx = p.vx * 0.65 + fx * GLOBAL_SPEED;
-      p.vy = p.vy * 0.65 + fy * GLOBAL_SPEED;
+      p.vx = p.vx * 0.65 + fx * GLOBAL_SPEED * audioBoost;
+      p.vy = p.vy * 0.65 + fy * GLOBAL_SPEED * audioBoost;
     } else if (motion === "scribble") {
       // low inertia → sharp turns
       const I = 0.78;
@@ -1626,6 +1641,80 @@ const AUDIO_VOICES = {
     };
   },
 };
+
+// ============================================================
+//  MICROPHONE — particles react to ambient sound level
+// ============================================================
+let micActive = false;
+let micStream = null;
+let micAnalyser = null;
+let micLevel = 0;
+let micInitPromise = null;
+
+async function enableMic() {
+  if (micActive) return true;
+  if (micInitPromise) return micInitPromise;
+  micInitPromise = (async () => {
+    try {
+      await ensureAudio();
+      const um = new Tone.UserMedia();
+      await um.open();
+      micAnalyser = new Tone.Analyser("waveform", 256);
+      um.connect(micAnalyser);
+      micStream = um;
+      micActive = true;
+      updateMicButton();
+      return true;
+    } catch (e) {
+      console.warn("mic open failed", e);
+      micInitPromise = null;
+      micActive = false;
+      updateMicButton();
+      return false;
+    }
+  })();
+  return micInitPromise;
+}
+
+function disableMic() {
+  if (micStream) {
+    try { micStream.close(); } catch (e) {}
+    try { micStream.dispose(); } catch (e) {}
+    micStream = null;
+  }
+  if (micAnalyser) {
+    try { micAnalyser.dispose(); } catch (e) {}
+    micAnalyser = null;
+  }
+  micActive = false;
+  micLevel = 0;
+  micInitPromise = null;
+  updateMicButton();
+}
+
+function toggleMic() {
+  if (micActive) disableMic();
+  else enableMic();
+}
+
+function updateMicButton() {
+  const btn = document.getElementById("mic");
+  if (!btn) return;
+  btn.classList.toggle("active", micActive);
+  btn.textContent = micActive ? "●" : "○";
+}
+
+function readMicLevel() {
+  if (!micActive || !micAnalyser) return 0;
+  const data = micAnalyser.getValue();
+  if (!data || !data.length) return Math.max(0, micLevel - 0.03);
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+  const rms = Math.sqrt(sum / data.length);
+  micLevel = micLevel * 0.82 + rms * 0.18;
+  // subtract noise floor so background ambience doesn't push particles
+  return Math.max(0, micLevel - 0.03);
+}
 </script>
 </body>
 </html>
